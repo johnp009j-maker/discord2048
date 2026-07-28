@@ -1,6 +1,13 @@
+import os
 import random
 import io
 from PIL import Image, ImageDraw, ImageFont
+
+# Folder where custom tile images live. Name each file after its tile value,
+# e.g. assets/tiles/2.png, assets/tiles/4.png, ... assets/tiles/2048.png
+# Any value without a matching image just falls back to the colored-number look.
+TILE_IMAGE_DIR = os.path.join(os.path.dirname(__file__), "assets", "tiles")
+_tile_image_cache = {}
 
 TILE_COLORS = {
     0: (205, 193, 180),
@@ -19,6 +26,22 @@ TILE_COLORS = {
 TEXT_DARK = (119, 110, 101)
 TEXT_LIGHT = (249, 246, 242)
 BG_COLOR = (187, 173, 160)
+
+
+def _load_tile_image(value, size):
+    """Loads assets/tiles/{value}.png resized to (size, size). Returns None if no such file exists."""
+    cache_key = (value, size)
+    if cache_key in _tile_image_cache:
+        return _tile_image_cache[cache_key]
+
+    path = os.path.join(TILE_IMAGE_DIR, f"{value}.png")
+    if not os.path.isfile(path):
+        _tile_image_cache[cache_key] = None
+        return None
+
+    img = Image.open(path).convert("RGBA").resize((size, size), Image.LANCZOS)
+    _tile_image_cache[cache_key] = img
+    return img
 
 
 class Game2048:
@@ -134,21 +157,31 @@ class Game2048:
                 x0 = padding + c * (tile_size + padding)
                 y0 = padding + r * (tile_size + padding)
                 x1, y1 = x0 + tile_size, y0 + tile_size
-                color = TILE_COLORS.get(val, (60, 58, 50))
-                draw.rounded_rectangle([x0, y0, x1, y1], radius=8, fill=color)
 
-                if val != 0:
-                    text = str(val)
-                    f = font if val < 1000 else small_font
-                    bbox = draw.textbbox((0, 0), text, font=f)
-                    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-                    tcolor = TEXT_DARK if val <= 4 else TEXT_LIGHT
-                    draw.text(
-                        (x0 + (tile_size - tw) / 2 - bbox[0], y0 + (tile_size - th) / 2 - bbox[1]),
-                        text,
-                        font=f,
-                        fill=tcolor,
-                    )
+                tile_img = _load_tile_image(val, tile_size) if val != 0 else None
+
+                if tile_img is not None:
+                    # Custom picture for this tile value: paste it in, rounded corners to match the board style.
+                    mask = Image.new("L", (tile_size, tile_size), 0)
+                    ImageDraw.Draw(mask).rounded_rectangle([0, 0, tile_size, tile_size], radius=8, fill=255)
+                    img.paste(tile_img, (x0, y0), mask)
+                else:
+                    # No custom image for this value (or it's an empty tile) - use the classic colored-number look.
+                    color = TILE_COLORS.get(val, (60, 58, 50))
+                    draw.rounded_rectangle([x0, y0, x1, y1], radius=8, fill=color)
+
+                    if val != 0:
+                        text = str(val)
+                        f = font if val < 1000 else small_font
+                        bbox = draw.textbbox((0, 0), text, font=f)
+                        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                        tcolor = TEXT_DARK if val <= 4 else TEXT_LIGHT
+                        draw.text(
+                            (x0 + (tile_size - tw) / 2 - bbox[0], y0 + (tile_size - th) / 2 - bbox[1]),
+                            text,
+                            font=f,
+                            fill=tcolor,
+                        )
 
         buf = io.BytesIO()
         img.save(buf, format="PNG")
