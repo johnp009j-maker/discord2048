@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 # Folder where custom tile images live. Name each file after its tile value,
 # e.g. assets/tiles/2.png, assets/tiles/4.png, ... assets/tiles/2048.png
 # Any value without a matching image just falls back to the colored-number look.
-TILE_IMAGE_DIR = os.path.join(os.path.dirname(__file__), "assets", "tiles")
+TILE_IMAGE_DIR = os.path.join(os.path.dirname(__file__), "images")
 _tile_image_cache = {}
 
 TILE_COLORS = {
